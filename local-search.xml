@@ -4,17 +4,23 @@
   
   
   <entry>
-    <title>First Blog</title>
-    <link href="/2021/01/09/hello-world/"/>
-    <url>/2021/01/09/hello-world/</url>
+    <title>2021 开篇大吉</title>
+    <link href="/2021/01/09/first-blog/"/>
+    <url>/2021/01/09/first-blog/</url>
     
-    <content type="html"><![CDATA[<blockquote><p>测试专属</p></blockquote><h1 id="Title-1"><a href="#Title-1" class="headerlink" title="Title 1"></a>Title 1</h1><blockquote><p>站在巨人的肩膀</p></blockquote><h1 id="Title-2"><a href="#Title-2" class="headerlink" title="Title 2"></a>Title 2</h1><ul><li>不重复造轮子</li><li>不不过设计</li></ul>]]></content>
+    <content type="html"><![CDATA[<blockquote><p>吾日三省吾身：为人谋而不忠乎？与朋友交而不信乎？传不习乎？</p><footer><strong>孟子 《论语》</strong></footer></blockquote><a id="more"></a><p>花了半天时间，建了下博客。一直期望找个清净之地，记录一下所思所想，挑来挑去，还是借GitHub宝地一用吧。</p><p>写代码的时候，发现了GitHub已将master更改为main，结合地球另一边的“大闹天宫”，再看看当下疫情，过去的2020真是风云变幻、大开眼界之年。经济全球化的大趋势难以逆转，类似川普等保守势力的上台只能说是回光返照、“短期反弹”，任何国家，甚至是任何个人也难以独善其身，合作才能共赢啊。虽说我们抗疫取得阶段胜利，但是防控、发展等各方面的压力都非常大，原来这就是“百年未有之大变局”。新的一年，期望疫情早早结束，打工人能<strong>少加班、多挣钱</strong>。</p><p>2021年，也给自己做一些新的要求，期望以此为始，<strong>持续学习</strong>，定期输出：</p><ul><li>多读书多看报</li><li>技术类文章 1 篇/月</li><li>其他类文章 随缘更新</li></ul><p>对于技术而言，还是要戒骄戒躁，一步步啃难点。对于常用的中间件，有机会还是要多读读源码，既要懂得原理，也要学会拿来即用。急于求成是不可取的，要以实战项目为中心，<strong>“点-线-面”</strong>的搭建自己的知识体系，定期的总结归纳是必须的。<br>每日三省做不到没关系，每周一省就可以了：</p><ul><li>每周少摸了几天鱼</li><li>每周少加了几天班</li><li>每周遇到了哪些坑</li><li>每周多学了几个知识</li><li>每周写了多少有效代码</li></ul><blockquote><p>2021，冲冲冲！</p></blockquote>]]></content>
     
+    
+    <categories>
+      
+      <category>其他</category>
+      
+    </categories>
     
     
     <tags>
       
-      <tag>others</tag>
+      <tag>随笔</tag>
       
     </tags>
     
