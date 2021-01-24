@@ -17,7 +17,7 @@
   <meta name="description" content="">
   <meta name="author" content="Young">
   <meta name="keywords" content="">
-  <title>2021 开篇大吉 - Young&#39;s Blog</title>
+  <title>Redis Get Key - Young&#39;s Blog</title>
 
   <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css" />
 
@@ -162,7 +162,7 @@
       <div class="full-bg-img">
         <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
           <div class="page-header text-center fade-in-up">
-            <span class="h2" id="subtitle" title="2021 开篇大吉">
+            <span class="h2" id="subtitle" title="Redis Get Key">
               
             </span>
 
@@ -172,8 +172,8 @@
   
     <span class="post-meta">
       <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-      <time datetime="2021-01-09 22:23" pubdate>
-        2021年1月9日 晚上
+      <time datetime="2021-01-24 18:30" pubdate>
+        2021年1月24日 晚上
       </time>
     </span>
   
@@ -184,7 +184,7 @@
     
     <span class="post-meta mr-2">
       <i class="iconfont icon-chart"></i>
-      456 字
+      422 字
     </span>
   
 
@@ -194,7 +194,7 @@
       <i class="iconfont icon-clock-fill"></i>
       
       
-      4
+      5
        分钟
     </span>
   
@@ -224,33 +224,54 @@
         <div class="py-5" id="board">
           <article class="post-content mx-auto">
             <!-- SEO header -->
-            <h1 style="display: none">2021 开篇大吉</h1>
+            <h1 style="display: none">Redis Get Key</h1>
             
             <div class="markdown-body">
-              <blockquote><p>吾日三省吾身：为人谋而不忠乎？与朋友交而不信乎？传不习乎？</p>
-<footer><strong>孟子 《论语》</strong></footer></blockquote>
+              <div class="note note-info">
+            <p>为什么 GET [key] 复杂度为 O(1) ?</p>
+          </div>
 
 <a id="more"></a>
 
-<p>花了半天时间，建了下博客。一直期望找个清净之地，记录一下所思所想，挑来挑去，还是借GitHub宝地一用吧。</p>
-<p>写代码的时候，发现了GitHub已将master更改为main，结合地球另一边的“大闹天宫”，再看看当下疫情，过去的2020真是风云变幻、大开眼界之年。经济全球化的大趋势难以逆转，类似川普等保守势力的上台只能说是回光返照、“短期反弹”，任何国家，甚至是任何个人也难以独善其身，合作才能共赢啊。虽说我们抗疫取得阶段胜利，但是防控、发展等各方面的压力都非常大，原来这就是“百年未有之大变局”。新的一年，期望疫情早早结束，打工人能<strong>少加班、多挣钱</strong>。</p>
-<p>2021年，也给自己做一些新的要求，期望以此为始，<strong>持续学习</strong>，定期输出：</p>
-<ul>
-<li>多读书多看报</li>
-<li>技术类文章 1 篇/月</li>
-<li>其他类文章 随缘更新</li>
-</ul>
-<p>对于技术而言，还是要戒骄戒躁，一步步啃难点。对于常用的中间件，有机会还是要多读读源码，既要懂得原理，也要学会拿来即用。急于求成是不可取的，要以实战项目为中心，<strong>“点-线-面”</strong>的搭建自己的知识体系，定期的总结归纳是必须的。<br>每日三省做不到没关系，每周一省就可以了：</p>
-<ul>
-<li>每周少摸了几天鱼</li>
-<li>每周少加了几天班</li>
-<li>每周遇到了哪些坑</li>
-<li>每周多学了几个知识</li>
-<li>每周写了多少有效代码</li>
-</ul>
-<blockquote>
-<p>2021，冲冲冲！</p>
+<h1 id="键值对存储结构"><a href="#键值对存储结构" class="headerlink" title="键值对存储结构"></a>键值对存储结构</h1><blockquote>
+<p>Redis 所有键值对存储在一个全局字典表中，利用key来快速查找匹配到对应的键值对，时间复杂度O(1)<br>可以类比 <strong>Java HashMap</strong> </p>
 </blockquote>
+<p><img src="/images/redis-dic.png" srcset="/img/loading.gif" alt="pic 1: redis 字典结构"></p>
+<div class="note note-success">
+            <p>补充：</p><ul><li>ht[0]、ht[1] 是为rehash准备的</li><li>字段具体结构会在后续文章展开</li></ul>
+          </div>
+
+<h1 id="Key查找方法"><a href="#Key查找方法" class="headerlink" title="Key查找方法"></a>Key查找方法</h1><blockquote>
+<p>源文件 src/dict.c#dicFind</p>
+</blockquote>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-function">dictEntry *<span class="hljs-title">dictFind</span><span class="hljs-params">(dict *d, <span class="hljs-keyword">const</span> <span class="hljs-keyword">void</span> *key)</span></span><br><span class="hljs-function"></span>&#123;<br>	<span class="hljs-comment">// *d 即为键值对字典对象指针</span><br>    dictEntry *he;<br>    <span class="hljs-keyword">uint64_t</span> h, idx, table;<br><br>    <span class="hljs-keyword">if</span> (dictSize(d) == <span class="hljs-number">0</span>) <span class="hljs-keyword">return</span> <span class="hljs-literal">NULL</span>; <br>    <span class="hljs-keyword">if</span> (dictIsRehashing(d)) _dictRehashStep(d);<br><br>    <span class="hljs-comment">// 获得key的hash值</span><br>    h = dictHashKey(d, key);<br>    <span class="hljs-comment">// table即为上图中的 ht数组（共有两个元素）</span><br>    <span class="hljs-keyword">for</span> (table = <span class="hljs-number">0</span>; table &lt;= <span class="hljs-number">1</span>; table++) &#123;<br>    	<span class="hljs-comment">// 计算key的index</span><br>        idx = h &amp; d-&gt;ht[table].sizemask;<br>        <span class="hljs-comment">// 获取到index对应链表的头指针</span><br>        he = d-&gt;ht[table].table[idx];<br>        <span class="hljs-keyword">while</span>(he) &#123;<br>        	<span class="hljs-comment">// 逐个判断是否相等</span><br>            <span class="hljs-keyword">if</span> (key==he-&gt;key || dictCompareKeys(d, key, he-&gt;key))<br>                <span class="hljs-keyword">return</span> he;<br>            he = he-&gt;next;<br>        &#125;<br>        <span class="hljs-comment">// 若没有正在镜像 rehash, 则直接结束 即rehash时两个table都要进行扫描</span><br>        <span class="hljs-keyword">if</span> (!dictIsRehashing(d)) <span class="hljs-keyword">return</span> <span class="hljs-literal">NULL</span>;<br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-literal">NULL</span>;<br>&#125;<br></code></pre></td></tr></table></figure>
+<p>由源代码可知, 查找key（dictEntry）只需两步</p>
+<ol>
+<li>计算hash值并计算索引</li>
+<li>链表上逐个匹配</li>
+</ol>
+<h2 id="调用链"><a href="#调用链" class="headerlink" title="调用链"></a>调用链</h2>
+<pre>
+<code class="mermaid" >
+flowchart TB
+    getGenericCommand-->lookupKeyReadOrReply
+	subgraph t_string.c
+    getCommand-->getGenericCommand
+    end
+    subgraph db.c
+    lookupKeyReadOrReply-->lookupKeyReadWithFlags
+    lookupKeyReadWithFlags-->lookupKey
+    lookupKey-->dictFind
+    end
+</code>
+</pre>
+
+<h1 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h1><div class="note note-info">
+            <p>由以上可知，Redis GET Key 并不是严格意义上的 O(1), 实际上是O(1+M) M即链表上查找所经过的长度。但是为什么文档上写O(1)呢？这是因为Redis rehash保证了每个桶（dictEntry 链表）持有尽可能少的元素，所以时间复杂度近似O(1)。</p>
+          </div>
+
+
+<p>下一篇，继续从源码入手研究rehash策略。</p>
 
             </div>
             <hr>
@@ -260,7 +281,7 @@
                   <div class="post-meta mr-3">
                     <i class="iconfont icon-category"></i>
                     
-                      <a class="hover-with-bg" href="/categories/%E5%85%B6%E4%BB%96/">其他</a>
+                      <a class="hover-with-bg" href="/categories/Redis/">Redis</a>
                     
                   </div>
                 
@@ -268,7 +289,9 @@
                   <div class="post-meta">
                     <i class="iconfont icon-tags"></i>
                     
-                      <a class="hover-with-bg" href="/tags/%E9%9A%8F%E7%AC%94/">随笔</a>
+                      <a class="hover-with-bg" href="/tags/redis/">redis</a>
+                    
+                      <a class="hover-with-bg" href="/tags/%E4%B8%AD%E9%97%B4%E4%BB%B6/">中间件</a>
                     
                   </div>
                 
@@ -281,15 +304,15 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2021/01/24/redis-str-get/">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">Redis Get Key</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
+                    
+                      <a href="/2021/01/09/first-blog/">
+                        <span class="hidden-mobile">2021 开篇大吉</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
                     
                   </article>
                 </div>
@@ -446,6 +469,13 @@
 
 
 
+
+  <script  src="https://cdn.jsdelivr.net/npm/mermaid@8.8.3/dist/mermaid.min.js" ></script>
+  <script>
+    if (window.mermaid) {
+      mermaid.initialize({"theme":"default"});
+    }
+  </script>
 
 
 

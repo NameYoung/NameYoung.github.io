@@ -4,6 +4,33 @@
   
   
   <entry>
+    <title>Redis Get Key</title>
+    <link href="/2021/01/24/redis-str-get/"/>
+    <url>/2021/01/24/redis-str-get/</url>
+    
+    <content type="html"><![CDATA[<div class="note note-info">            <p>为什么 GET [key] 复杂度为 O(1) ?</p>          </div><a id="more"></a><h1 id="键值对存储结构"><a href="#键值对存储结构" class="headerlink" title="键值对存储结构"></a>键值对存储结构</h1><blockquote><p>Redis 所有键值对存储在一个全局字典表中，利用key来快速查找匹配到对应的键值对，时间复杂度O(1)<br>可以类比 <strong>Java HashMap</strong> </p></blockquote><p><img src="/images/redis-dic.png" alt="pic 1: redis 字典结构"></p><div class="note note-success">            <p>补充：</p><ul><li>ht[0]、ht[1] 是为rehash准备的</li><li>字段具体结构会在后续文章展开</li></ul>          </div><h1 id="Key查找方法"><a href="#Key查找方法" class="headerlink" title="Key查找方法"></a>Key查找方法</h1><blockquote><p>源文件 src/dict.c#dicFind</p></blockquote><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><code class="hljs c"><span class="hljs-function">dictEntry *<span class="hljs-title">dictFind</span><span class="hljs-params">(dict *d, <span class="hljs-keyword">const</span> <span class="hljs-keyword">void</span> *key)</span></span><br><span class="hljs-function"></span>&#123;<br><span class="hljs-comment">// *d 即为键值对字典对象指针</span><br>    dictEntry *he;<br>    <span class="hljs-keyword">uint64_t</span> h, idx, table;<br><br>    <span class="hljs-keyword">if</span> (dictSize(d) == <span class="hljs-number">0</span>) <span class="hljs-keyword">return</span> <span class="hljs-literal">NULL</span>; <br>    <span class="hljs-keyword">if</span> (dictIsRehashing(d)) _dictRehashStep(d);<br><br>    <span class="hljs-comment">// 获得key的hash值</span><br>    h = dictHashKey(d, key);<br>    <span class="hljs-comment">// table即为上图中的 ht数组（共有两个元素）</span><br>    <span class="hljs-keyword">for</span> (table = <span class="hljs-number">0</span>; table &lt;= <span class="hljs-number">1</span>; table++) &#123;<br>    <span class="hljs-comment">// 计算key的index</span><br>        idx = h &amp; d-&gt;ht[table].sizemask;<br>        <span class="hljs-comment">// 获取到index对应链表的头指针</span><br>        he = d-&gt;ht[table].table[idx];<br>        <span class="hljs-keyword">while</span>(he) &#123;<br>        <span class="hljs-comment">// 逐个判断是否相等</span><br>            <span class="hljs-keyword">if</span> (key==he-&gt;key || dictCompareKeys(d, key, he-&gt;key))<br>                <span class="hljs-keyword">return</span> he;<br>            he = he-&gt;next;<br>        &#125;<br>        <span class="hljs-comment">// 若没有正在镜像 rehash, 则直接结束 即rehash时两个table都要进行扫描</span><br>        <span class="hljs-keyword">if</span> (!dictIsRehashing(d)) <span class="hljs-keyword">return</span> <span class="hljs-literal">NULL</span>;<br>    &#125;<br>    <span class="hljs-keyword">return</span> <span class="hljs-literal">NULL</span>;<br>&#125;<br></code></pre></td></tr></table></figure><p>由源代码可知, 查找key（dictEntry）只需两步</p><ol><li>计算hash值并计算索引</li><li>链表上逐个匹配</li></ol><h2 id="调用链"><a href="#调用链" class="headerlink" title="调用链"></a>调用链</h2><pre><code class="mermaid" >flowchart TB    getGenericCommand-->lookupKeyReadOrReplysubgraph t_string.c    getCommand-->getGenericCommand    end    subgraph db.c    lookupKeyReadOrReply-->lookupKeyReadWithFlags    lookupKeyReadWithFlags-->lookupKey    lookupKey-->dictFind    end</code></pre><h1 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h1><div class="note note-info">            <p>由以上可知，Redis GET Key 并不是严格意义上的 O(1), 实际上是O(1+M) M即链表上查找所经过的长度。但是为什么文档上写O(1)呢？这是因为Redis rehash保证了每个桶（dictEntry 链表）持有尽可能少的元素，所以时间复杂度近似O(1)。</p>          </div><p>下一篇，继续从源码入手研究rehash策略。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>Redis</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>redis</tag>
+      
+      <tag>中间件</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>2021 开篇大吉</title>
     <link href="/2021/01/09/first-blog/"/>
     <url>/2021/01/09/first-blog/</url>
