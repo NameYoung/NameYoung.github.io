@@ -4,6 +4,35 @@
   
   
   <entry>
+    <title>Globalization Date Transfer (上) - java.util.Date</title>
+    <link href="/2021/05/22/global-date-transfer/"/>
+    <url>/2021/05/22/global-date-transfer/</url>
+    
+    <content type="html"><![CDATA[<div class="note note-info">            <p>Date transfer in globalization web app</p>          </div><a id="more"></a><h1 id="关于日期与时间"><a href="#关于日期与时间" class="headerlink" title="关于日期与时间"></a>关于日期与时间</h1><blockquote><p>做国际化产品时，一定会涉及到不同国家不同时区转换问题。为保证时间一致性，后端该如何选择数据结构，如何定义API？</p></blockquote><h2 id="框架介绍"><a href="#框架介绍" class="headerlink" title="框架介绍"></a>框架介绍</h2><ul><li>Spring</li><li>MySQL 5.7</li><li>MyBatis</li></ul><h2 id="GMT-amp-amp-UTC"><a href="#GMT-amp-amp-UTC" class="headerlink" title="GMT &amp;&amp; UTC"></a>GMT &amp;&amp; UTC</h2><p>GMT与UTC，是常听到两个时间相关的名词，可以简单的理解为UTC基于GMT的升级，UTC使用原子时钟定义时间，克服了GMT的弊端（时间流逝不均匀），所以UTC也就最终成为世界标准时间。</p><ol><li><a href="https://zh.wikipedia.org/wiki/%E6%A0%BC%E6%9E%97%E5%B0%BC%E6%B2%BB%E6%A8%99%E6%BA%96%E6%99%82%E9%96%93">参考链接-格林尼治标准时间GMT</a></li><li><a href="https://zh.wikipedia.org/wiki/%E5%8D%8F%E8%B0%83%E4%B8%96%E7%95%8C%E6%97%B6">参考链接-协调世界时UTC</a></li></ol><h2 id="UNIX时间戳-amp-amp-ISO8601"><a href="#UNIX时间戳-amp-amp-ISO8601" class="headerlink" title="UNIX时间戳 &amp;&amp;     ISO8601"></a>UNIX时间戳 &amp;&amp;     ISO8601</h2><p><strong>UNIX时间戳：</strong> 是类UNIX系统中所采用的时间格式，记录的是UTC(0时区) 1970年1月1日0时0分0秒起至现在的总秒数，<br>由于一般以32位有符号整数表示，故表示范围有限，存在比较著名的<a href="https://stackoverflow.com/questions/2012589/php-mysql-year-2038-bug-what-is-it-how-to-solve-it">2038问题</a>，有兴趣的话可以一看。</p><p><strong>ISO8601：</strong> 是国际标准组织对日期表示制定的一套标准，常见的形式如：‘2021-05-30T12:00:00+08:00’，详细介绍查看该<a href="https://www.iso.org/iso-8601-date-and-time-format.html">链接</a></p><h2 id="Mysql-中的-Date"><a href="#Mysql-中的-Date" class="headerlink" title="Mysql 中的 Date"></a>Mysql 中的 Date</h2><p>MySql 中主要的时间表示方式，有Timestamp与Datetime。其实两者差别不大，从表现形式、底层存储上看基本是一个数据结构，主要的不同点如下：</p><table><thead><tr><th align="center">功能</th><th align="center">Datetime</th><th align="center">Timestamp</th></tr></thead><tbody><tr><td align="center">表示范围</td><td align="center">‘1000-01-01 00:00:00.000000’ to ‘9999-12-31 23:59:59.999999</td><td align="center">‘1970-01-01 00:00:01.000000’ to ‘2038-01-19 03:14:07.999999’</td></tr><tr><td align="center">存储的时候是否要转为UTC(零时区)</td><td align="center">否</td><td align="center">是</td></tr><tr><td align="center">字节大小</td><td align="center">5字节</td><td align="center">4字节</td></tr></tbody></table><p>所以在实际应用中，最好还是有限考虑Datetime。一方面是其表示范围广，另一方面是在实际应用中会避免掉Mysql server自动转时区问题。</p><div class="note note-primary">            <p><a href="https://dev.mysql.com/doc/refman/8.0/en/time-zone-support.html">Mysql 8.0.19开始支持日期携带分区</a></p>          </div><h2 id="Java-中的-Date"><a href="#Java-中的-Date" class="headerlink" title="Java 中的 Date"></a>Java 中的 Date</h2><div class="note note-info">            <p>Java 的时间类比较乱，如java.util.*，java.sql.*, java.time.*</p>          </div><p>尽管java 8推出了新的<em>java.time</em>，而且是推荐使用，但<em>java.util.Date</em>依然保留。目前很多框架对<em>java.time</em>的支持并不友好（如 <em>Jackson</em>）。<br>所以本系列文章会通过<em>java.util.Date</em> 与 <em>java.time.ZonedDateTime</em>演示，来指导实际应用时的选型。本篇主要以<em>java.util.Date</em>为例。</p><h1 id="Date-参数转换"><a href="#Date-参数转换" class="headerlink" title="Date 参数转换"></a>Date 参数转换</h1><p>Request 的Date参数使用ISO8601标准定义，然后利用Jackson <a href="https://www.baeldung.com/jackson-jsonformat">@JsonFormat</a>来自动将时间串参数转换为服务器时区的Date，代码如下：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DateDemoRequest</span> </span>&#123;<br>    <span class="hljs-meta">@JsonFormat(pattern = &quot;yyyy-MM-dd&#x27;T&#x27;HH:MM:SSZ&quot;)</span><br>    <span class="hljs-keyword">private</span> Date date;<br><br><span class="hljs-comment">// 省略 setter getter</span><br>&#125;<br></code></pre></td></tr></table></figure><h1 id="Mybatis-Mysql-转换"><a href="#Mybatis-Mysql-转换" class="headerlink" title="Mybatis - Mysql 转换"></a>Mybatis - Mysql 转换</h1><div class="note note-info">            <p>Mybatis 默认使用 DateTypeHandler处理date参数，并不会做时区转换。<br>MySQL-Connector中的ClientPreparedQueryBindings会处理时区。</p>          </div><h3 id="概念介绍"><a href="#概念介绍" class="headerlink" title="概念介绍"></a>概念介绍</h3><ul><li><a href="https://dev.mysql.com/doc/refman/8.0/en/time-zone-support.html">MySQL session timezone</a></li><li><a href="https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-connp-props-datetime-types-processing.html#cj-conn-prop_connectionTimeZone">Connector connectionTimeZone&amp;forceConnectionTimeZoneToSession</a></li></ul><p><strong>简单讲：</strong><br>当table column为Timestamp类型时，Mysql 会根据session timezone是否是0时区来转换timestamp的值；<br>jdbc url properties设置connectionTimeZone时，ClientPreparedQueryBindings会将时间（Date&amp;Timestamp）转换为该时区的时间，但是并不会修改session timezone。只有同时设置forceConnectionTimeZoneToSession=true时，才会修改session timezone。</p><h4 id="connectionTimeZone配置方式"><a href="#connectionTimeZone配置方式" class="headerlink" title="connectionTimeZone配置方式"></a>connectionTimeZone配置方式</h4><figure class="highlight properties"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs properties"><span class="hljs-attr">jdbc</span>:<span class="hljs-string">mysql://localhost:3306/test?connectionTimeZone=UTC&amp;forceConnectionTimeZoneToSession=true</span><br></code></pre></td></tr></table></figure><div class="note note-warning">            <p><strong>假设Server时区为+08:00</strong><br><strong>假设MySQL session timezone为+08:00</strong></p>          </div><h3 id="默认情况"><a href="#默认情况" class="headerlink" title="默认情况"></a>默认情况</h3><blockquote><p>不设置connectionTimeZone（默认服务器时区）与 forceConnectionTimeZoneToSession（默认MySQL session timezone）</p></blockquote><table><thead><tr><th align="center">数据库字段类型</th><th align="center">request参数值</th><th align="center">server转换后的date</th><th align="center">生成的sql value</th><th align="center">最终存储值</th></tr></thead><tbody><tr><td align="center">Timestamp</td><td align="center">2021-05-30T21:00:00+07:00</td><td align="center">2021-05-30T22:00:00+08:00</td><td align="center">2021-05-30T22:00:00+08:00</td><td align="center">2021-05-30T14:00:00+00:00(0时区)</td></tr><tr><td align="center">Datetime</td><td align="center">2021-05-30T21:00:00+07:00</td><td align="center">2021-05-30T22:00:00+08:00</td><td align="center">2021-05-30T22:00:00+08:00</td><td align="center">2021-05-30T22:00:00+08:00</td></tr></tbody></table><h3 id="只设置connectionTimeZone-UTC"><a href="#只设置connectionTimeZone-UTC" class="headerlink" title="只设置connectionTimeZone=UTC"></a>只设置connectionTimeZone=UTC</h3><table><thead><tr><th align="center">数据库字段类型</th><th align="center">request参数值</th><th align="center">server转换后的date</th><th align="center">生成的sql value</th><th align="center">最终存储值</th></tr></thead><tbody><tr><td align="center">Timestamp</td><td align="center">2021-05-30T21:00:00+07:00</td><td align="center">2021-05-30T22:00:00+08:00</td><td align="center">2021-05-30T14:00:00+00:00</td><td align="center">2021-05-30T06:00:00+00:00(0时区)</td></tr><tr><td align="center">Datetime</td><td align="center">2021-05-30T21:00:00+07:00</td><td align="center">2021-05-30T22:00:00+08:00</td><td align="center">2021-05-30T14:00:00+00:00</td><td align="center">2021-05-30T14:00:00+00:00</td></tr></tbody></table><h3 id="设置connectionTimeZone-UTC-amp-amp-forceConnectionTimeZoneToSession-true"><a href="#设置connectionTimeZone-UTC-amp-amp-forceConnectionTimeZoneToSession-true" class="headerlink" title="设置connectionTimeZone=UTC &amp;&amp; forceConnectionTimeZoneToSession=true"></a>设置connectionTimeZone=UTC &amp;&amp; forceConnectionTimeZoneToSession=true</h3><table><thead><tr><th align="center">数据库字段类型</th><th align="center">request参数值</th><th align="center">server转换后的date</th><th align="center">生成的sql value</th><th align="center">最终存储值</th></tr></thead><tbody><tr><td align="center">Timestamp</td><td align="center">2021-05-30T21:00:00+07:00</td><td align="center">2021-05-30T22:00:00+08:00</td><td align="center">2021-05-30T14:00:00+00:00</td><td align="center">2021-05-30T14:00:00+00:00(0时区)</td></tr><tr><td align="center">Datetime</td><td align="center">2021-05-30T21:00:00+07:00</td><td align="center">2021-05-30T22:00:00+08:00</td><td align="center">2021-05-30T14:00:00+00:00</td><td align="center">2021-05-30T14:00:00+00:00</td></tr></tbody></table><h1 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h1><p>  由以上各类情况可以判断，当设置<strong>connectionTimeZone=UTC &amp;&amp; forceConnectionTimeZoneToSession=true</strong>，Timestamp与Datetime 数据是一致的（都是0时区），所以不论是数据查询还是数据导出都会比较方便，所以建议设置connectionTimeZone=UTC&amp;forceConnectionTimeZoneToSession=true。</p><p>  若不设置，则务必保证Server 与 MySQL的时区一致（都设置为UTC），避免潜在的数据转换问题。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>Web</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Globalization</tag>
+      
+      <tag>Java</tag>
+      
+      <tag>MyBatis</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>SpringBoot DBUnit</title>
     <link href="/2021/03/07/spring-db-unit/"/>
     <url>/2021/03/07/spring-db-unit/</url>
@@ -20,13 +49,13 @@
     
     <tags>
       
+      <tag>MyBatis</tag>
+      
       <tag>DBUnit</tag>
       
       <tag>SpringBoot</tag>
       
       <tag>UnitTest</tag>
-      
-      <tag>MyBatis</tag>
       
     </tags>
     
