@@ -4,6 +4,35 @@
   
   
   <entry>
+    <title>Globalization Date Transfer (中) - java.time.ZonedDateTime</title>
+    <link href="/2021/06/22/global-date-transfer-2/"/>
+    <url>/2021/06/22/global-date-transfer-2/</url>
+    
+    <content type="html"><![CDATA[<div class="note note-info">            <p>Date transfer in globalization web app</p>          </div><a id="more"></a><h1 id="Date-vs-ZonedDateTime"><a href="#Date-vs-ZonedDateTime" class="headerlink" title="Date vs ZonedDateTime"></a>Date vs ZonedDateTime</h1><h3 id="Date-缺点"><a href="#Date-缺点" class="headerlink" title="Date 缺点"></a>Date 缺点</h3><p>详情可以看这篇大佬的<a href="https://codeblog.jonskeet.uk/2017/04/23/all-about-java-util-date/">吐槽</a><br>实际开发来讲，比较棘手的问题如下：</p><ul><li>明明是个瞬时时间点，但是却可以修改，所以使用过程中存在隐患（如某个方法不小心修改了数据）(非线程安全)</li><li>方法有歧义，开发易挖坑（如toString()方法默认转换为本地时区时间，但实际其并没有时区属性）</li><li>格式转换比较麻烦（如输出ISO8601格式）</li><li>日期运算比较麻烦（如计算两个日期相隔天数）</li></ul><h3 id="java-time-优点"><a href="#java-time-优点" class="headerlink" title="java.time.* 优点"></a>java.time.* 优点</h3><ul><li>包含时区，方便时区转换</li><li>丰富的计算方法，方便时间比较计算</li><li>线程安全（immutable)</li></ul><div class="note note-info">            <p><a href="https://www.joda.org/joda-time/">JodaTime</a>也强烈建议开发者使用java.time.*</p>          </div><h1 id="Spring-Date参数转换"><a href="#Spring-Date参数转换" class="headerlink" title="Spring Date参数转换"></a>Spring Date参数转换</h1><blockquote><p>Spring如何处理请求/响应中ISO8601格式的日期？</p></blockquote><h3 id="RequestParam"><a href="#RequestParam" class="headerlink" title="RequestParam"></a>RequestParam</h3><p>对于@<em>RequestParam</em>声明的参数，可使用@<em>DateTimeFormat</em>进行解析。</p><h3 id="RequestBody-amp-amp-ResponseBody"><a href="#RequestBody-amp-amp-ResponseBody" class="headerlink" title="RequestBody &amp;&amp; ResponseBody"></a>RequestBody &amp;&amp; ResponseBody</h3><p>对于 Request/Response Body 数据的解析与格式化，可使用<strong>Jackson</strong>进行处理，即使用注解@<em>JsonFormat</em>。</p><div class="note note-info">            <p>Spring 中Jackson解析的核心类为<strong>MappingJackson2HttpMessageConverter</strong></p>          </div><h1 id="Mybatis-ZonedDateTime"><a href="#Mybatis-ZonedDateTime" class="headerlink" title="Mybatis ZonedDateTime"></a>Mybatis ZonedDateTime</h1><blockquote><p>上一篇已经介绍的Mybatis对Date的处理，本篇介绍下Mybatis对ZonedDateTime处理方法</p></blockquote><h3 id="ZonedDateTimeTypeHandler"><a href="#ZonedDateTimeTypeHandler" class="headerlink" title="ZonedDateTimeTypeHandler"></a>ZonedDateTimeTypeHandler</h3><p>同<strong>java.util.Date</strong>装换方式类似，将ZonedDateTime装换为ServerSessionTimeZone时区的Timestamp(Date)</p><h1 id="Mysql-Timestamp-与-DateTime"><a href="#Mysql-Timestamp-与-DateTime" class="headerlink" title="Mysql Timestamp 与 DateTime"></a>Mysql Timestamp 与 DateTime</h1><p>Timestamp与DateTime Mybatis会一视同仁，都会转为java.sql.Timestamp(Date)</p><h1 id="测试"><a href="#测试" class="headerlink" title="测试"></a>测试</h1><h3 id="Mysql-global-session-07-00-amp-amp-server-timezone-08-00"><a href="#Mysql-global-session-07-00-amp-amp-server-timezone-08-00" class="headerlink" title="Mysql global session(+07:00) &amp;&amp; server timezone +08:00"></a>Mysql global session(+07:00) &amp;&amp; server timezone +08:00</h3><table><thead><tr><th align="center">数据库字段类型</th><th align="center">request参数值</th><th align="center">server转换后的ZonedDateTime</th><th align="center">生成的sql value</th><th align="center">最终存储值</th></tr></thead><tbody><tr><td align="center">Timestamp</td><td align="center">2021-05-30T21:00:00+07:00</td><td align="center">2021-05-30T14:00:00+00:00</td><td align="center">2021-05-30T22:00:00+08:00</td><td align="center">2021-05-30T15:00:00+00:00</td></tr><tr><td align="center">Datetime</td><td align="center">2021-05-30T21:00:00+07:00</td><td align="center">2021-05-30T14:00:00+00:00</td><td align="center">2021-05-30T22:00:00+08:00</td><td align="center">2021-05-30T22:00:00+08:00</td></tr></tbody></table><h3 id="Mysql-global-session-07-00-amp-amp-server-timezone-08-00-amp-amp-connectionTimeZone-UTC-amp-forceConnectionTimeZoneToSession-true"><a href="#Mysql-global-session-07-00-amp-amp-server-timezone-08-00-amp-amp-connectionTimeZone-UTC-amp-forceConnectionTimeZoneToSession-true" class="headerlink" title="Mysql global session(+07:00) &amp;&amp; server timezone +08:00 &amp;&amp; connectionTimeZone=UTC&amp;forceConnectionTimeZoneToSession=true"></a>Mysql global session(+07:00) &amp;&amp; server timezone +08:00 &amp;&amp; connectionTimeZone=UTC&amp;forceConnectionTimeZoneToSession=true</h3><table><thead><tr><th align="center">数据库字段类型</th><th align="center">request参数值</th><th align="center">server转换后的ZonedDateTime</th><th align="center">生成的sql value</th><th align="center">最终存储值</th></tr></thead><tbody><tr><td align="center">Timestamp</td><td align="center">2021-05-30T21:00:00+07:00</td><td align="center">2021-05-30T14:00:00+00:00</td><td align="center">2021-05-30T14:00:00+00:00</td><td align="center">2021-05-30T14:00:00+00:00</td></tr><tr><td align="center">Datetime</td><td align="center">2021-05-30T21:00:00+07:00</td><td align="center">2021-05-30T14:00:00+00:00</td><td align="center">2021-05-30T14:00:00+00:00</td><td align="center">2021-05-30T14:00:00+00:00</td></tr></tbody></table><h1 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h1><p>实际使用的建议，同Date一样，务必保证Server 与 MySQL的时区一致（都设置为UTC），避免潜在的数据转换问题。<br>同时也要设置<strong>connectionTimeZone=UTC &amp;&amp; forceConnectionTimeZoneToSession=true</strong></p>]]></content>
+    
+    
+    <categories>
+      
+      <category>Web</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Globalization</tag>
+      
+      <tag>Java</tag>
+      
+      <tag>MyBatis</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>Globalization Date Transfer (上) - java.util.Date</title>
     <link href="/2021/05/22/global-date-transfer/"/>
     <url>/2021/05/22/global-date-transfer/</url>
