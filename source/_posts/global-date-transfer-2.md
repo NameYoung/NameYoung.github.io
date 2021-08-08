@@ -1,5 +1,5 @@
 ---
-title: Globalization Date Transfer (中) - java.time.ZonedDateTime
+title: Globalization Date Transfer (二) - java.time.ZonedDateTime
 date: 2021-06-22 15:21:52
 tags:
 	- Globalization
