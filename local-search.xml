@@ -4,6 +4,37 @@
   
   
   <entry>
+    <title>Web开发问题-ThreadLocal异常值</title>
+    <link href="/2022/05/21/dev-problem-thread-local/"/>
+    <url>/2022/05/21/dev-problem-thread-local/</url>
+    
+    <content type="html"><![CDATA[<div class="note note-info">            <p>当前线程中的ThreadLocal为什么出现异常值？</p>          </div><h1 id="问题描述"><a href="#问题描述" class="headerlink" title="问题描述"></a>问题描述</h1><h2 id="当前逻辑"><a href="#当前逻辑" class="headerlink" title="当前逻辑"></a>当前逻辑</h2><ol><li>Web Request Header中会携带<strong>uuid</strong>参数（参数可以省略）</li><li>服务器Filter在请求执行前将<strong>uuid</strong>设置到当前请求线程的ContextHolder中，并在请求结束时清除ContextHolder</li></ol><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Context</span> </span>&#123;<br>    <span class="hljs-keyword">private</span> String uuid;<br><br>    <span class="hljs-comment">// getter &amp; setter</span><br>&#125;<br><br><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ContextHolder</span> </span>&#123;<br>    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> ThreadLocal&lt;Context&gt; CONTEXT_HOLDER = <br>    <span class="hljs-keyword">new</span> NamedInheritableThreadLocal&lt;&gt;(<span class="hljs-string">&quot;Context&quot;</span>);<br><br>    <span class="hljs-function"><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">clearContext</span><span class="hljs-params">()</span> </span>&#123;<br>        CONTEXT_HOLDER.remove();<br>    &#125;<br><br><br>    <span class="hljs-function"><span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Context <span class="hljs-title">getContext</span><span class="hljs-params">()</span> </span>&#123;<br>        Context ctx = CONTEXT_HOLDER.get();<br><br>        <span class="hljs-keyword">if</span> (ctx == <span class="hljs-keyword">null</span>) &#123;<br>            ctx = createEmptyContext();<br>            CONTEXT_HOLDER.set(ctx);<br>        &#125;<br><br>        <span class="hljs-keyword">return</span> ctx;<br>    &#125;<br>    <span class="hljs-comment">// 省略非必要代码</span><br>&#125;<br></code></pre></td></tr></table></figure><h2 id="具体问题"><a href="#具体问题" class="headerlink" title="具体问题"></a>具体问题</h2><ol><li>第一次请求，HttpRquest Header中<strong>有uuid</strong>，ContextHolder.CONTEXT_HOLDER uuid被成功设置并使用</li><li>第二次请求，HttpRquest Header中<strong>无uuid</strong>，但ContextHolder.CONTEXT_HOLDER依然有值，且值为第一次请求的uuid</li></ol><div class="note note-danger">            <p>Web Filter会执行ContextHolder.clearContext()，不应该存在&lt;2&gt;中的异常情形</p>          </div><h1 id="问题排查："><a href="#问题排查：" class="headerlink" title="问题排查："></a>问题排查：</h1><h2 id="原因分析"><a href="#原因分析" class="headerlink" title="原因分析"></a>原因分析</h2><ul><li>ContextHolder.clearContext直接调用ThreadLocal.remove，所以不存在清理失效问题。</li><li>整个过程并没有使用缓存，逻辑上讲，存在以下两个可能的原因</li></ul><p><strong>猜测（一）</strong>：请求处理过程中，请求线程池第一次初始化，但清理时只清理了子线程<br><strong>猜测（二）</strong>：由ThreadLocal 源码可知，ThreadLocal.remove只是清除了对Context对象的引用，可能存在线程池Context对象复用的情况</p><h2 id="Debug排查"><a href="#Debug排查" class="headerlink" title="Debug排查"></a>Debug排查</h2><h3 id="线程池初始化时机"><a href="#线程池初始化时机" class="headerlink" title="线程池初始化时机"></a>线程池初始化时机</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">// AbstractEndpoint.class 920行</span><br><span class="hljs-function"><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">createExecutor</span><span class="hljs-params">()</span> </span>&#123;<br>    internalExecutor = <span class="hljs-keyword">true</span>;<br>    TaskQueue taskqueue = <span class="hljs-keyword">new</span> TaskQueue();<br>    TaskThreadFactory tf = <br>    <span class="hljs-keyword">new</span> TaskThreadFactory(getName() + <span class="hljs-string">&quot;-exec-&quot;</span>, daemon, getThreadPriority());<br>    <span class="hljs-comment">// corePoolSize 默认为10，即server.tomcat.threads.min-spare</span><br>    executor = <br>    <span class="hljs-keyword">new</span> ThreadPoolExecutor(<br>    getMinSpareThreads(), getMaxThreads(), <span class="hljs-number">60</span>, TimeUnit.SECONDS,taskqueue, tf);<br>    taskqueue.setParent( (ThreadPoolExecutor) executor);<br>&#125;<br><br><span class="hljs-comment">// org.apache.tomcat.util.threads.ThreadPoolExecutor 75行</span><br><span class="hljs-comment">// 默认在启动时，创建所有的core threads</span><br><span class="hljs-function"><span class="hljs-keyword">public</span> <span class="hljs-title">ThreadPoolExecutor</span><span class="hljs-params">(<span class="hljs-keyword">int</span> corePoolSize, <span class="hljs-keyword">int</span> maximumPoolSize, <span class="hljs-keyword">long</span> keepAliveTime, TimeUnit unit, BlockingQueue&lt;Runnable&gt; workQueue, ThreadFactory threadFactory)</span> </span>&#123;<br>    <span class="hljs-keyword">super</span>(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, <span class="hljs-keyword">new</span> RejectHandler());<br>    prestartAllCoreThreads();<br>&#125;<br></code></pre></td></tr></table></figure><div class="note note-info">            <p>关于Spring Boot配置 <a href="https://docs.spring.io/spring-boot/docs/current/reference/html/application-properties.html#application-properties.server.server.tomcat.threads.min-spare">链接1</a><br>关于Tomcat minSpareThreads <a href="https://tomcat.apache.org/tomcat-8.0-doc/config/http.html">链接2</a></p>          </div><h3 id="Context对象复用"><a href="#Context对象复用" class="headerlink" title="Context对象复用"></a>Context对象复用</h3><blockquote><p>由上一小节可知，请求处理线程池在WebServer启动时就已经初始化，所以<strong>猜测（一）</strong>不成立</p></blockquote><p>项目启动时，会有main线程来初始化请求线程池，即创建10个（默认）请求处理子线程，此时子线程会继承main线程中的ThreadLocal，继承方法如下：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-comment">// Thread.class 448行</span><br><span class="hljs-keyword">if</span> (inheritThreadLocals &amp;&amp; parent.inheritableThreadLocals != <span class="hljs-keyword">null</span>)<br>    <span class="hljs-keyword">this</span>.inheritableThreadLocals =<br>        ThreadLocal.createInheritedMap(parent.inheritableThreadLocals);<br>        <br><span class="hljs-comment">// ThreadLocal.class 400行</span><br><span class="hljs-function"><span class="hljs-keyword">private</span> <span class="hljs-title">ThreadLocalMap</span><span class="hljs-params">(ThreadLocalMap parentMap)</span> </span>&#123;<br>    Entry[] parentTable = parentMap.table;<br>    <span class="hljs-keyword">int</span> len = parentTable.length;<br>    setThreshold(len);<br>    table = <span class="hljs-keyword">new</span> Entry[len];<br><br>    <span class="hljs-keyword">for</span> (Entry e : parentTable) &#123;<br>        <span class="hljs-keyword">if</span> (e != <span class="hljs-keyword">null</span>) &#123;<br>            <span class="hljs-meta">@SuppressWarnings(&quot;unchecked&quot;)</span><br>            ThreadLocal&lt;Object&gt; key = (ThreadLocal&lt;Object&gt;) e.get();<br>            <span class="hljs-keyword">if</span> (key != <span class="hljs-keyword">null</span>) &#123;<br>            <span class="hljs-comment">// 简单理解为获取到父线程（main线程）的CONTEXT_HOLDER，并set到子线程中</span><br>                Object value = key.childValue(e.value);<br>                Entry c = <span class="hljs-keyword">new</span> Entry(key, value);<br>                <span class="hljs-keyword">int</span> h = key.threadLocalHashCode &amp; (len - <span class="hljs-number">1</span>);<br>                <span class="hljs-keyword">while</span> (table[h] != <span class="hljs-keyword">null</span>)<br>                    h = nextIndex(h, len);<br>                table[h] = c;<br>                size++;<br>            &#125;<br>        &#125;<br>    &#125;<br>&#125;<br><br><span class="hljs-comment">// key.childValue(e.value) 默认代码如下</span><br><span class="hljs-comment">// InheritableThreadLocal 66行</span><br><span class="hljs-comment">// 该方法默认并未处理parentValue，而是直接返回，即所有子线程实际引用了同一个Context对象</span><br><span class="hljs-function"><span class="hljs-keyword">protected</span> T <span class="hljs-title">childValue</span><span class="hljs-params">(T parentValue)</span> </span>&#123;<br>    <span class="hljs-keyword">return</span> parentValue;<br>&#125;<br><br></code></pre></td></tr></table></figure><p>如上述源代码，请求线程池中的子线程本质上引用了同一个Context对象，<br>第一请求该对象时，更改了共同引用的Context对象的值，当第一次请求结束时，只是清除了当前线程对Context对象的引用(简单理解为，当前线程的ThreadLocal=null)，其他线程依旧保留着该Context引用。这就产生了最开始碰到的问题，即<strong>猜测（二）</strong>成立。</p><h1 id="解决方案"><a href="#解决方案" class="headerlink" title="解决方案"></a>解决方案</h1><p>通过自定义InheritableThreadLocal，重写childValue，使得子线程复制父线程数据时使用新对象</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-function"><span class="hljs-keyword">protected</span> Object <span class="hljs-title">childValue</span><span class="hljs-params">(Object parentValue)</span> </span>&#123;<br>    <span class="hljs-keyword">if</span> (parentValue <span class="hljs-keyword">instanceof</span> Context) &#123;<br>        Context childValue = <span class="hljs-keyword">new</span> Context();<br>        childValue.setUuid(((Context)parentValue).getUuid());<br>        <span class="hljs-keyword">return</span> childValue;<br>    &#125;<br>    <span class="hljs-comment">// 省略其他代码</span><br>&#125;<br></code></pre></td></tr></table></figure><h1 id="扩展"><a href="#扩展" class="headerlink" title="扩展"></a>扩展</h1><p>在使用线程池时，如果存在需传递ThreadLocal给线程池的情况，也会碰到诸多ThreadLocal的问题。<br>建议使用 <a href="https://github.com/alibaba/transmittable-thread-local">阿里TTL</a></p><p>未来会对阿里TTL做个原理介绍</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>Web开发</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Java</tag>
+      
+      <tag>线程池</tag>
+      
+      <tag>Thread</tag>
+      
+      <tag>开发问题</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>项目管理 - 课后总结</title>
     <link href="/2022/04/18/project-management-info/"/>
     <url>/2022/04/18/project-management-info/</url>
@@ -76,9 +107,9 @@
     
     <tags>
       
-      <tag>Globalization</tag>
-      
       <tag>Java</tag>
+      
+      <tag>Globalization</tag>
       
       <tag>MyBatis</tag>
       
@@ -111,9 +142,9 @@
     
     <tags>
       
-      <tag>Globalization</tag>
-      
       <tag>Java</tag>
+      
+      <tag>Globalization</tag>
       
       <tag>MyBatis</tag>
       
@@ -140,9 +171,9 @@
     
     <tags>
       
-      <tag>Globalization</tag>
-      
       <tag>Java</tag>
+      
+      <tag>Globalization</tag>
       
       <tag>MyBatis</tag>
       
